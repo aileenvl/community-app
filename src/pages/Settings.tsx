@@ -1,7 +1,74 @@
 import React from 'react';
 import { User, Lock, Bell, Globe, Shield } from 'lucide-react';
+import { usePlatformConnection } from '../hooks/usePlatformConnection';
+import type { Platform } from '../types/supabase';
+
+interface PlatformConfig {
+  id: Platform;
+  name: string;
+  icon: React.ReactNode;
+  clientId: string;
+  redirectUri: string;
+}
+
+const platforms: PlatformConfig[] = [
+  {
+    id: 'twitter',
+    name: 'Twitter',
+    icon: <Shield className="h-5 w-5 text-[#1DA1F2]" />,
+    clientId: import.meta.env.VITE_TWITTER_CLIENT_ID,
+    redirectUri: import.meta.env.VITE_TWITTER_REDIRECT_URI,
+  },
+  {
+    id: 'linkedin',
+    name: 'LinkedIn',
+    icon: <Shield className="h-5 w-5 text-[#0A66C2]" />,
+    clientId: import.meta.env.VITE_LINKEDIN_CLIENT_ID,
+    redirectUri: import.meta.env.VITE_LINKEDIN_REDIRECT_URI,
+  },
+  {
+    id: 'bluesky',
+    name: 'BlueSky',
+    icon: <Shield className="h-5 w-5 text-[#0560FF]" />,
+    clientId: '',
+    redirectUri: '',
+  }
+];
 
 export function Settings() {
+  const handleConnect = async (platform: PlatformConfig) => {
+    if (platform.id === 'bluesky') {
+      // Handle BlueSky connection with modal
+      return;
+    }
+
+    try {
+      const authUrl = new URL(
+        platform.id === 'twitter'
+          ? 'https://twitter.com/i/oauth2/authorize'
+          : 'https://www.linkedin.com/oauth/v2/authorization'
+      );
+
+      authUrl.searchParams.append('response_type', 'code');
+      authUrl.searchParams.append('client_id', platform.clientId);
+      authUrl.searchParams.append('redirect_uri', platform.redirectUri);
+      
+      if (platform.id === 'twitter') {
+        authUrl.searchParams.append('scope', 'tweet.read tweet.write users.read');
+        authUrl.searchParams.append('state', 'state');
+        authUrl.searchParams.append('code_challenge', 'challenge');
+        authUrl.searchParams.append('code_challenge_method', 'plain');
+      } else {
+        authUrl.searchParams.append('scope', 'w_member_social');
+      }
+
+      console.log(`${platform.name} Auth URL:`, authUrl.toString());
+      window.location.href = authUrl.toString();
+    } catch (error) {
+      console.error(`Error connecting to ${platform.name}:`, error);
+    }
+  };
+
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between">
@@ -75,17 +142,28 @@ export function Settings() {
               Connected Accounts
             </h2>
             <div className="mt-4 space-y-4">
-              {['Twitter', 'LinkedIn', 'Facebook', 'Instagram'].map((platform) => (
-                <div key={platform} className="flex items-center justify-between">
-                  <div className="flex items-center">
-                    <Shield className="h-5 w-5 text-gray-400" />
-                    <span className="ml-3 text-sm text-gray-700">{platform}</span>
+              {platforms.map((platform) => {
+                const { isConnected, disconnect } = usePlatformConnection(platform.id);
+                
+                return (
+                  <div key={platform.name} className="flex items-center justify-between">
+                    <div className="flex items-center">
+                      {platform.icon}
+                      <span className="ml-3 text-sm text-gray-700">{platform.name}</span>
+                    </div>
+                    <button
+                      onClick={() => isConnected ? disconnect() : handleConnect(platform)}
+                      className={`inline-flex items-center px-3 py-1.5 border shadow-sm text-sm font-medium rounded ${
+                        isConnected
+                          ? 'border-gray-300 text-gray-700 bg-white hover:bg-gray-50'
+                          : 'border-transparent text-white bg-indigo-600 hover:bg-indigo-700'
+                      }`}
+                    >
+                      {isConnected ? 'Disconnect' : 'Connect'}
+                    </button>
                   </div>
-                  <button className="inline-flex items-center px-3 py-1.5 border border-gray-300 shadow-sm text-sm font-medium rounded text-gray-700 bg-white hover:bg-gray-50">
-                    Connect
-                  </button>
-                </div>
-              ))}
+                );
+              })}
             </div>
           </div>
         </div>
